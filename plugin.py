@@ -18,6 +18,7 @@
 """
 import Domoticz
 import http.cookiejar, urllib 
+import datetime
 import xlrd
 from xlrd.sheet import ctype_text
 
@@ -43,7 +44,10 @@ class URL:
 		return response
 
 class BasePlugin:
+	
+	lastHeartbeat = datetime.datetime.now()
 	enabled = False
+	
 	def __init__(self):
 		#self.var = 123
 		return
@@ -81,43 +85,10 @@ class BasePlugin:
 
 	def onHeartbeat(self):
 		Domoticz.Log("onHeartbeat called")
-		url = URL()		
-		urlConnect = 'https://www.service-client.veoliaeau.fr/home.loginAction.do#inside-space'
-		urlConso1 = 'https://www.service-client.veoliaeau.fr/home/espace-client/votre-consommation.html'
-		urlConso2 = 'https://www.service-client.veoliaeau.fr/home/espace-client/votre-consommation.html?vueConso=historique'
-		urlXls = 'https://www.service-client.veoliaeau.fr/home/espace-client/votre-consommation.exportConsommationData.do?vueConso=historique'
-		urlDisconnect = 'https://www.service-client.veoliaeau.fr/logout'
-		# Connect to Veolia website
-		Domoticz.Log('Connection au site Veolia Eau')
-		params = {'veolia_username' : Parameters["Username"] ,
-			 'veolia_password' : Parameters["Password"],
-			 'login' : 'OK'}
-		referer = 'https://www.service-client.veoliaeau.fr/home.html'
-		url.call(urlConnect, params, referer)
-		# Page 'votre consomation'
-		#Domoticz.Log('Page de consommation')
-		url.call(urlConso1)
-		# Page 'votre consomation : historique'
-		#Domoticz.Log('Page de consommation : historique')
-		url.call(urlConso2)
-		# Download XLS file
-		Domoticz.Log('Telechargement du fichier')
-		response = url.call(urlXls)
-		content = response.read()
-		# logout
-		Domoticz.Log('Deconnection du site Veolia Eau')
-		url.call(urlDisconnect)
-		file = open('temp.xls', 'wb')
-		file.write(content)
-		file.close()
-		book = xlrd.open_workbook('temp.xls', encoding_override="cp1252")
-		sheet = book.sheet_by_index(0)
-		last_rows = sheet.nrows
-		row = sheet.row(last_rows-1)
-		for idx, cell_obj in enumerate(row):
-			cell_type_str = ctype_text.get(cell_obj.ctype, 'unknown type')
-			if idx == 1:
-				UpdateDevice(1,0,cell_obj.value)
+		################## check if more than 1 day before check & update value
+		lastHeartbeatDelta = (datetime.datetime.now()-self.lastHeartbeat).total_seconds()
+		if (lastHeartbeatDelta > 86400):
+			checkveolia()
 
 global _plugin
 _plugin = BasePlugin()
@@ -176,3 +147,42 @@ def UpdateDevice(Unit, nValue, sValue):
 			Devices[Unit].Update(nValue, sValue)
 			Domoticz.Log("Update "+str(nValue)+":'"+str(sValue)+"' ("+Devices[Unit].Name+")")
 	return
+
+def checkveolia():
+	url = URL()		
+	urlConnect = 'https://www.service-client.veoliaeau.fr/home.loginAction.do#inside-space'
+	urlConso1 = 'https://www.service-client.veoliaeau.fr/home/espace-client/votre-consommation.html'
+	urlConso2 = 'https://www.service-client.veoliaeau.fr/home/espace-client/votre-consommation.html?vueConso=historique'
+	urlXls = 'https://www.service-client.veoliaeau.fr/home/espace-client/votre-consommation.exportConsommationData.do?vueConso=historique'
+	urlDisconnect = 'https://www.service-client.veoliaeau.fr/logout'
+	# Connect to Veolia website
+	Domoticz.Log('Connection au site Veolia Eau')
+	params = {'veolia_username' : Parameters["Username"] ,
+		 'veolia_password' : Parameters["Password"],
+		 'login' : 'OK'}
+	referer = 'https://www.service-client.veoliaeau.fr/home.html'
+	url.call(urlConnect, params, referer)
+	# Page 'votre consomation'
+	#Domoticz.Log('Page de consommation')
+	url.call(urlConso1)
+	# Page 'votre consomation : historique'
+	#Domoticz.Log('Page de consommation : historique')
+	url.call(urlConso2)
+	# Download XLS file
+	Domoticz.Log('Telechargement du fichier')
+	response = url.call(urlXls)
+	content = response.read()
+	# logout
+	Domoticz.Log('Deconnection du site Veolia Eau')
+	url.call(urlDisconnect)
+	file = open('temp.xls', 'wb')
+	file.write(content)
+	file.close()
+	book = xlrd.open_workbook('temp.xls', encoding_override="cp1252")
+	sheet = book.sheet_by_index(0)
+	last_rows = sheet.nrows
+	row = sheet.row(last_rows-1)
+	for idx, cell_obj in enumerate(row):
+		cell_type_str = ctype_text.get(cell_obj.ctype, 'unknown type')
+		if idx == 1:
+			UpdateDevice(1,0,cell_obj.value)
