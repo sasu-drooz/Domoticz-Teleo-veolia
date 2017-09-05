@@ -2,8 +2,12 @@
 #
 #		   Author:	 zaraki673, 2017
 #
+#   sudo pip3 install xlrd
+#   sudo ln -s /usr/local/lib/python3.5/dist-packages/xlrd /usr/lib/python3.5/
+#
+#
 """
-<plugin key="Teleo" name="Veolia Teleo" author="zaraki673" version="1.0.0">
+<plugin key="Teleo" name="Veolia Teleo" author="zaraki673" version="1.0.0" wikilink="https://github.com/sasu-drooz/Domoticz-Teleo-veolia" >
 	<params>
 		<param field="Username" label="Login Veolia" width="150px" required="true"/>
 		<param field="Password" label="Password Veolia" width="150px" required="true"/>
